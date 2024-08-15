@@ -5,37 +5,24 @@ import "./App.css";
 import {
   Container,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Typography,
+  Card,
+  CardContent,
 } from "@mui/material";
 
 const ROOMMATES = ["Chummi", "Pragu", "Punya", "Racchu"];
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 const API_URL = "https://roommate-garbage-tracker.onrender.com/api/garbageData";
 
 function App() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [garbageData, setGarbageData] = useState({});
+  const [selectedRoommate, setSelectedRoommate] = useState(null);
+  const [roommateColors] = useState({
+    Chummi: "#FFC107",
+    Pragu: "#8BC34A",
+    Punya: "#03A9F4",
+    Racchu: "#E91E63",
+  });
 
   useEffect(() => {
     fetchData();
@@ -71,64 +58,67 @@ function App() {
   };
 
   const handleRoommateClick = async (roommate) => {
-    const dateString = selectedDate.toISOString().split("T")[0];
+    setSelectedRoommate(roommate);
+
+    // Adjust the date to IST (UTC+5:30)
+    const istOffset = 5.5 * 60; // Offset in minutes
+    const localDate = new Date(selectedDate.getTime() + istOffset * 60 * 1000);
+
+    // Format the date as YYYY-MM-DD
+    const dateString = localDate.toISOString().split("T")[0];
+
     const newData = { ...garbageData };
-    if (!newData[dateString]) {
-      newData[dateString] = {};
+
+    // Toggle the date for the roommate
+    if (newData[dateString] && newData[dateString][roommate]) {
+      // If the date is already selected, unselect it (remove it)
+      delete newData[dateString][roommate];
+      // If the date has no other roommate data, delete the date entry
+      if (Object.keys(newData[dateString]).length === 0) {
+        delete newData[dateString];
+      }
+    } else {
+      // If the date is not selected, add it
+      if (!newData[dateString]) {
+        newData[dateString] = {};
+      }
+      newData[dateString][roommate] = true;
     }
-    newData[dateString][roommate] = true;
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save data");
-      }
-
-      setGarbageData(newData);
+      await saveData(newData);
     } catch (error) {
       console.error("Error saving data:", error);
     }
   };
 
-  const getMonthCounts = () => {
-    const counts = {};
-    ROOMMATES.forEach((roommate) => {
-      counts[roommate] = new Array(12).fill(0);
-    });
+  const getMonthlyData = (roommate) => {
+    const monthlyData = {};
+    Object.entries(garbageData).forEach(([date, data]) => {
+      const dateObj = new Date(date);
+      const year = dateObj.getFullYear();
+      const month = dateObj.getMonth() + 1; // Months are 0-based
 
-    Object.entries(garbageData).forEach(([date, roommateData]) => {
-      const month = new Date(date).getMonth();
-      Object.keys(roommateData).forEach((roommate) => {
-        if (ROOMMATES.includes(roommate)) {
-          counts[roommate][month]++;
+      if (data[roommate]) {
+        if (!monthlyData[year]) {
+          monthlyData[year] = {};
         }
-      });
+        if (!monthlyData[year][month]) {
+          monthlyData[year][month] = { days: [], count: 0 };
+        }
+        monthlyData[year][month].days.push(dateObj.getDate());
+        monthlyData[year][month].count++;
+      }
     });
 
-    return counts;
-  };
-
-  const getTotalCounts = (monthCounts) => {
-    return MONTHS.map((_, index) =>
-      ROOMMATES.reduce((sum, roommate) => sum + monthCounts[roommate][index], 0)
+    // Sort days within each month
+    Object.values(monthlyData).forEach((yearData) =>
+      Object.values(yearData).forEach((monthData) =>
+        monthData.days.sort((a, b) => a - b)
+      )
     );
-  };
 
-  const monthCounts = getMonthCounts();
-  const totalCounts = getTotalCounts(monthCounts);
-
-  const tileClassName = ({ date, view }) => {
-    if (view === "month") {
-      const dateString = date.toISOString().split("T")[0];
-      return garbageData[dateString] ? "marked-date" : null;
-    }
+    return monthlyData;
   };
 
   return (
@@ -140,7 +130,42 @@ function App() {
         <Calendar
           onChange={handleDateChange}
           value={selectedDate}
-          tileClassName={tileClassName}
+          tileClassName={({ date }) => {
+            const localDate = new Date(
+              date.getTime() + 5.5 * 60 * 60 * 1000 // Adjust for IST offset
+            );
+            const dateString = localDate.toISOString().split("T")[0];
+            if (
+              selectedRoommate &&
+              garbageData[dateString] &&
+              garbageData[dateString][selectedRoommate]
+            ) {
+              return "marked-date";
+            }
+            return null;
+          }}
+          tileContent={({ date, view }) => {
+            const dateString = new Date(date.getTime() + 5.5 * 60 * 60 * 1000)
+              .toISOString()
+              .split("T")[0];
+            if (
+              selectedRoommate &&
+              garbageData[dateString] &&
+              garbageData[dateString][selectedRoommate]
+            ) {
+              return (
+                <div
+                  style={{
+                    backgroundColor: roommateColors[selectedRoommate],
+                    height: "100%",
+                    width: "100%",
+                    borderRadius: "50%",
+                  }}
+                />
+              );
+            }
+            return null;
+          }}
         />
       </div>
       <div className="button-container">
@@ -148,46 +173,59 @@ function App() {
           <Button
             key={roommate}
             variant="contained"
+            style={{
+              backgroundColor: roommateColors[roommate],
+              color: selectedRoommate === roommate ? "#fff" : "#000",
+              border:
+                selectedRoommate === roommate
+                  ? `2px solid ${roommateColors[roommate]}`
+                  : "none",
+            }}
             onClick={() => handleRoommateClick(roommate)}
           >
             {roommate}
           </Button>
         ))}
       </div>
-      <TableContainer component={Paper} className="counts-container">
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Roommate</TableCell>
-              {MONTHS.map((month) => (
-                <TableCell key={month}>{month}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {ROOMMATES.map((roommate) => (
-              <TableRow key={roommate}>
-                <TableCell>{roommate}</TableCell>
-                {MONTHS.map((_, index) => (
-                  <TableCell key={index}>
-                    {monthCounts[roommate][index]}
-                  </TableCell>
+      <div className="counts-container">
+        {ROOMMATES.map((roommate) => {
+          const monthlyData = getMonthlyData(roommate);
+          return (
+            <Card
+              key={roommate}
+              className="roommate-card"
+              style={{ borderColor: roommateColors[roommate] }}
+            >
+              <CardContent>
+                <Typography
+                  variant="h5"
+                  style={{ color: roommateColors[roommate] }}
+                >
+                  {roommate}
+                </Typography>
+                {Object.entries(monthlyData).map(([year, months]) => (
+                  <div key={year}>
+                    <Typography variant="h6">{year}</Typography>
+                    {Object.entries(months).map(([month, data]) => (
+                      <div key={month} className="month-section">
+                        <Typography variant="subtitle1">
+                          {new Date(year, month - 1).toLocaleString("default", {
+                            month: "long",
+                          })}{" "}
+                          (Total: {data.count})
+                        </Typography>
+                        <Typography variant="body1">
+                          {data.days.join(", ")}
+                        </Typography>
+                      </div>
+                    ))}
+                  </div>
                 ))}
-              </TableRow>
-            ))}
-            <TableRow>
-              <TableCell>
-                <strong>Total</strong>
-              </TableCell>
-              {totalCounts.map((count, index) => (
-                <TableCell key={index}>
-                  <strong>{count}</strong>
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </Container>
   );
 }

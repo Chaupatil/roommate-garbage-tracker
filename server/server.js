@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 const uri = process.env.MONGODB_URI;
-console.log("MONGODB_URI:", uri); // Add this line for debugging
+console.log("MONGODB_URI:", uri);
 
 if (!uri) {
   console.error("MONGODB_URI is not defined in the environment variables");

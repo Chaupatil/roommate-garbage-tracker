@@ -30,7 +30,7 @@ const MONTHS = [
   "Nov",
   "Dec",
 ];
-const API_URL = "https://your-render-app-url.onrender.com/api/garbageData";
+const API_URL = "https://roommate-garbage-tracker.onrender.com/api/garbageData";
 
 function App() {
   const [selectedDate, setSelectedDate] = useState(new Date());

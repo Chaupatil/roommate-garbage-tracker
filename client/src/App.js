@@ -15,7 +15,11 @@ import {
   Typography,
 } from "@mui/material";
 
+<<<<<<< HEAD
 const ROOMMATES = ["Chummmi", "Pragu", "Punya", "Racchu"];
+=======
+const ROOMMATES = ["Chummi", "Pragu", "Punya", "Racchu"];
+>>>>>>> 5191a35ee240761bbc101c204827383341364f33
 const MONTHS = [
   "Jan",
   "Feb",

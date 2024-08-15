@@ -15,7 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 
-const ROOMMATES = ["Alice", "Bob", "Charlie", "David"];
+const ROOMMATES = ["Chummmi", "Pragu", "Punya", "Racchu"];
 const MONTHS = [
   "Jan",
   "Feb",
@@ -105,7 +105,9 @@ function App() {
     Object.entries(garbageData).forEach(([date, roommateData]) => {
       const month = new Date(date).getMonth();
       Object.keys(roommateData).forEach((roommate) => {
-        counts[roommate][month]++;
+        if (ROOMMATES.includes(roommate)) {
+          counts[roommate][month]++;
+        }
       });
     });
 
